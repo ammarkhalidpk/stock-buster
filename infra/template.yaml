@@ -7,6 +7,24 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  GoogleClientId:
+    Type: String
+    Default: "your-google-client-id"
+    Description: Google OAuth Client ID for federated login
+  GoogleClientSecret:
+    Type: String
+    Default: "your-google-client-secret"
+    NoEcho: true
+    Description: Google OAuth Client Secret for federated login
+  FacebookAppId:
+    Type: String
+    Default: "your-facebook-app-id"
+    Description: Facebook App ID for federated login
+  FacebookAppSecret:
+    Type: String
+    Default: "your-facebook-app-secret"
+    NoEcho: true
+    Description: Facebook App Secret for federated login
   
 Globals:
   Function:
@@ -21,6 +39,12 @@ Globals:
         MOVERS_TABLE: !Ref MoversTable
         FORECASTS_TABLE: !Ref ForecastsTable
         METADATA_TABLE: !Ref MetadataTable
+        USERS_TABLE: !Ref UsersTable
+        PORTFOLIOS_TABLE: !Ref PortfoliosTable
+        TRANSACTIONS_TABLE: !Ref TransactionsTable
+        WATCHLISTS_TABLE: !Ref WatchlistsTable
+        USER_POOL_ID: !Ref UserPool
+        USER_POOL_CLIENT_ID: !Ref UserPoolClient
 
 Resources:
   # DynamoDB Tables
@@ -114,6 +138,141 @@ Resources:
         - AttributeName: key
           KeyType: HASH
 
+  # User Management Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-users-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  PortfoliosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-portfolios-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: symbol
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: symbol
+          KeyType: RANGE
+
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-transactions-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: transactionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: transactionId
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  WatchlistsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-watchlists-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: symbol
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: symbol
+          KeyType: RANGE
+
+  # AWS Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "stock-buster-${Environment}"
+      AliasAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: given_name
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+        - Name: family_name
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "stock-buster-client-${Environment}"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      SupportedIdentityProviders:
+        - COGNITO
+      AllowedOAuthFlows:
+        - code
+        - implicit
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      CallbackURLs:
+        - "http://localhost:5173"
+        - "https://main.d3r4e5f6g7h8i9.amplifyapp.com"
+      LogoutURLs:
+        - "http://localhost:5173"
+        - "https://main.d3r4e5f6g7h8i9.amplifyapp.com"
+      AllowedOAuthFlowsUserPoolClient: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub "stock-buster-${Environment}-${AWS::AccountId}"
+      UserPoolId: !Ref UserPool
+
   # REST API
   StockBusterApi:
     Type: AWS::Serverless::Api
@@ -198,6 +357,161 @@ Resources:
             RestApiId: !Ref StockBusterApi
             Path: /stock/{symbol}
             Method: get
+
+  # User Management Functions
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/users.createUser
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/users.getUser
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  # Portfolio Management Functions
+  GetPortfolioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/portfolio.getPortfolio
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/portfolio
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PortfoliosTable
+
+  BuyStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/portfolio.buyStock
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/portfolio/buy
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfoliosTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  SellStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/portfolio.sellStock
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/portfolio/sell
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfoliosTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  GetTransactionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/portfolio.getTransactions
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/transactions
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TransactionsTable
+
+  # Watchlist Functions
+  GetWatchlistFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/watchlist.getWatchlist
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/watchlist
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref WatchlistsTable
+
+  AddToWatchlistFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/watchlist.addToWatchlist
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/watchlist
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WatchlistsTable
+
+  RemoveFromWatchlistFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/watchlist.removeFromWatchlist
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/watchlist/{symbol}
+            Method: delete
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WatchlistsTable
 
   # WebSocket API
   WebSocketApi:
@@ -399,3 +713,21 @@ Outputs:
     Value: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
     Export:
       Name: !Sub "${AWS::StackName}-WebSocketUrl"
+
+  UserPoolId:
+    Description: "Cognito User Pool ID"
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+
+  UserPoolClientId:
+    Description: "Cognito User Pool Client ID"
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+
+  UserPoolDomain:
+    Description: "Cognito User Pool Domain"
+    Value: !Sub "https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolDomain"

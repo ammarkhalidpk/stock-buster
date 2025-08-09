@@ -13,14 +13,16 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.400.0",
     "@aws-sdk/client-dynamodb": "^3.400.0",
     "@aws-sdk/lib-dynamodb": "^3.400.0",
-    "@aws-sdk/client-apigatewaymanagementapi": "^3.400.0"
+    "@types/uuid": "^10.0.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.119",
-    "@types/node": "^20.5.0",
     "@types/jest": "^29.5.4",
+    "@types/node": "^20.5.0",
     "@typescript-eslint/eslint-plugin": "^6.4.0",
     "@typescript-eslint/parser": "^6.4.0",
     "eslint": "^8.47.0",

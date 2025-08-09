@@ -1,6 +1,9 @@
 import { Link, Outlet } from 'react-router-dom'
+import { useUser } from '../contexts/UserContext'
 
 export default function Layout() {
+  const { user, loading, logout } = useUser()
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <nav className="bg-white dark:bg-gray-800 shadow">
@@ -24,12 +27,50 @@ export default function Layout() {
               >
                 Movers
               </Link>
-              <Link 
-                to="/ticker" 
-                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Ticker
-              </Link>
+              {user && (
+                <>
+                  <Link 
+                    to="/portfolio" 
+                    className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Portfolio
+                  </Link>
+                  <Link 
+                    to="/watchlist" 
+                    className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Watchlist
+                  </Link>
+                </>
+              )}
+            </div>
+            <div className="flex items-center space-x-4">
+              {loading ? (
+                <div className="w-8 h-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+              ) : user ? (
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">{user.email}</span>
+                    <br />
+                    <span className="text-xs text-green-600">
+                      ${user.virtualBalance.toLocaleString()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={logout}
+                    className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
         </div>
