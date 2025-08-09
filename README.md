@@ -160,5 +160,8 @@ MIT
 
 ## 🚀 Live Demo
 
-Frontend: https://main.dyb9cmabiux6t.amplifyapp.com
-API: https://9nzf05a233.execute-api.ap-southeast-2.amazonaws.com/dev/
+**Frontend:** https://main.dyb9cmabiux6t.amplifyapp.com  
+**REST API:** https://9nzf05a233.execute-api.ap-southeast-2.amazonaws.com/dev/  
+**WebSocket API:** wss://klcu52wu2c.execute-api.ap-southeast-2.amazonaws.com/dev
+
+*Auto-deployment enabled - pushes to main branch automatically trigger Amplify builds*
