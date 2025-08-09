@@ -11,8 +11,10 @@ applications:
             - ls -la package.json || echo "No package.json found"
             - echo "Checking for package-lock.json..."
             - ls -la package-lock.json || echo "No package-lock.json found"
-            - echo "Installing dependencies with npm ci..."
-            - npm ci --prefer-offline --no-audit
+            - echo "NPM config:"
+            - npm config list
+            - echo "Installing dependencies..."
+            - npm install --no-save --prefer-offline --no-audit --no-fund --loglevel verbose
         build:
           commands:
             - echo "Building React app..."
