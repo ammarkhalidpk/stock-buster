@@ -19,8 +19,8 @@ export default function Dashboard() {
         console.error('Failed to fetch movers:', error)
         // Mock data for development
         setMovers([
-          { symbol: 'AAPL', price: 180.50, change: 2.30, changePercent: 1.29, volume: 45000000, timestamp: new Date().toISOString() },
-          { symbol: 'GOOGL', price: 2750.80, change: -15.20, changePercent: -0.55, volume: 1200000, timestamp: new Date().toISOString() },
+          { symbol: 'AAPL', exchange: 'NASDAQ', sector: 'Technology', price: 180.50, change: 2.30, changePercent: 1.29, volume: 45000000, rank: 1, timestamp: new Date().toISOString() },
+          { symbol: 'GOOGL', exchange: 'NASDAQ', sector: 'Technology', price: 2750.80, change: -15.20, changePercent: -0.55, volume: 1200000, rank: 2, timestamp: new Date().toISOString() },
         ])
         setLastUpdate(new Date().toISOString())
       } finally {
