@@ -6,7 +6,8 @@ applications:
         preBuild:
           commands:
             - echo "Installing dependencies..."
-            - npm install
+            - nvm use 20
+            - npm ci
         build:
           commands:
             - echo "Building React app..."
