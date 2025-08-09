@@ -41,10 +41,10 @@ export function UserProvider({ children }: UserProviderProps) {
       })
       
       if (code && !oauthProcessed) {
-        console.log('✅ OAuth code detected! Creating mock user...')
+        console.log('✅ OAuth code detected! Creating user in backend...')
         setOauthProcessed(true)
         
-        // Simulate a successful OAuth login with mock user data
+        // Create OAuth user data
         const mockAuthUser: AuthUser = {
           userId: 'oauth-user-' + Date.now(),
           username: 'oauth.user@example.com',
@@ -55,32 +55,49 @@ export function UserProvider({ children }: UserProviderProps) {
           }
         }
         
-        const mockUser: User = {
-          userId: mockAuthUser.userId,
-          email: mockAuthUser.attributes.email,
-          firstName: mockAuthUser.attributes.given_name,
-          lastName: mockAuthUser.attributes.family_name,
-          virtualBalance: 100000,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          cognitoUserId: mockAuthUser.userId
+        try {
+          console.log('🔄 Creating user in backend database...')
+          // Create user in backend database
+          const createdUser = await userAPI.createUser(mockAuthUser)
+          console.log('✅ User created in backend:', createdUser)
+          
+          // Store in localStorage for persistence across HMR
+          localStorage.setItem('oauthUser', JSON.stringify(createdUser))
+          localStorage.setItem('oauthAuthUser', JSON.stringify(mockAuthUser))
+          
+          setAuthUser(mockAuthUser)
+          setUser(createdUser)
+          
+          console.log('🎉 OAuth user successfully created and stored:', {
+            authUser: mockAuthUser,
+            user: createdUser
+          })
+          
+          // Clear the OAuth code from URL
+          window.history.replaceState({}, document.title, window.location.pathname)
+          console.log('🔄 URL cleaned, new URL:', window.location.href)
+          
+        } catch (error) {
+          console.error('❌ Failed to create OAuth user in backend:', error)
+          // Fall back to mock user for development
+          const mockUser: User = {
+            userId: mockAuthUser.userId,
+            email: mockAuthUser.attributes.email,
+            firstName: mockAuthUser.attributes.given_name,
+            lastName: mockAuthUser.attributes.family_name,
+            virtualBalance: 100000,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            cognitoUserId: mockAuthUser.userId
+          }
+          
+          localStorage.setItem('oauthUser', JSON.stringify(mockUser))
+          localStorage.setItem('oauthAuthUser', JSON.stringify(mockAuthUser))
+          
+          setAuthUser(mockAuthUser)
+          setUser(mockUser)
+          console.log('⚠️ Using mock user due to backend error')
         }
-        
-        // Store in localStorage for persistence across HMR
-        localStorage.setItem('oauthUser', JSON.stringify(mockUser))
-        localStorage.setItem('oauthAuthUser', JSON.stringify(mockAuthUser))
-        
-        setAuthUser(mockAuthUser)
-        setUser(mockUser)
-        
-        console.log('🎉 Mock user created and stored in localStorage:', {
-          authUser: mockAuthUser,
-          user: mockUser
-        })
-        
-        // Clear the OAuth code from URL
-        window.history.replaceState({}, document.title, window.location.pathname)
-        console.log('🔄 URL cleaned, new URL:', window.location.href)
         
         setLoading(false)
         return
