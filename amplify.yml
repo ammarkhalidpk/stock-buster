@@ -1,23 +1,23 @@
 version: 1
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - cd frontend
-        - echo "Node version:" && node --version
-        - echo "Installing dependencies..."
-        - npm install
-    build:
-      commands:
-        - cd frontend
-        - echo "Building React app..."
-        - npm run build
-        - echo "Build complete, checking dist directory..."
-        - ls -la dist/
-  artifacts:
-    baseDirectory: frontend/dist
-    files:
-      - '**/*'
-  cache:
-    paths:
-      - frontend/node_modules/**/*
+applications:
+  - frontend:
+      phases:
+        preBuild:
+          commands:
+            - cd frontend
+            - echo "Node version:" && node --version
+            - echo "Installing dependencies..."
+            - npm install
+        build:
+          commands:
+            - echo "Building React app..."
+            - npm run build
+            - echo "Build complete, checking dist directory..."
+            - ls -la dist/
+      artifacts:
+        baseDirectory: frontend/dist
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - frontend/node_modules/**/*
