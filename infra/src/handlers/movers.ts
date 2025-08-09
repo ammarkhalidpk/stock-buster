@@ -16,11 +16,13 @@ export const handler: ApiHandler = async (event) => {
 
     // Get query parameters with defaults
     const period = event.queryStringParameters?.period || 'INTRADAY' // INTRADAY, DAILY, WEEKLY, MONTHLY
-    const exchange = event.queryStringParameters?.exchange || 'ALL' // ALL, ASX, NASDAQ, LSE, etc.
+    const exchange = event.queryStringParameters?.exchange || 'NASDAQ' // Default to NASDAQ
     const sector = event.queryStringParameters?.sector // Optional sector filter
-    const limit = event.queryStringParameters?.limit ? Math.min(parseInt(event.queryStringParameters.limit), 100) : 20
+    const limit = event.queryStringParameters?.limit ? Math.min(parseInt(event.queryStringParameters.limit), 100) : 50
     const gainersOnly = event.queryStringParameters?.gainers === 'true'
     const losersOnly = event.queryStringParameters?.losers === 'true'
+    const sortBy = event.queryStringParameters?.sortBy || 'performance' // performance, volume, alphabetical
+    const lastEvaluatedKey = event.queryStringParameters?.cursor // For pagination
 
     console.log(`Fetching movers: period=${period}, exchange=${exchange}, sector=${sector}, limit=${limit}`)
 
@@ -35,7 +37,16 @@ export const handler: ApiHandler = async (event) => {
         ':pk': pk
       },
       Limit: limit,
-      ScanIndexForward: true // Get by rank ascending (best movers first)
+      ScanIndexForward: sortBy === 'performance' ? true : false // Get by rank ascending for performance, descending for others
+    }
+
+    // Add pagination support
+    if (lastEvaluatedKey) {
+      try {
+        queryParams.ExclusiveStartKey = JSON.parse(Buffer.from(lastEvaluatedKey, 'base64').toString('utf-8'))
+      } catch (error) {
+        console.warn('Invalid cursor provided:', error)
+      }
     }
 
     // Add sector filter if specified
@@ -79,8 +90,32 @@ export const handler: ApiHandler = async (event) => {
       }
     }
 
+    // Create pagination cursor for next request
+    let nextCursor = null
+    if (response.LastEvaluatedKey) {
+      nextCursor = Buffer.from(JSON.stringify(response.LastEvaluatedKey)).toString('base64')
+    }
+
+    const responseData = {
+      data: movers,
+      pagination: {
+        hasMore: !!response.LastEvaluatedKey,
+        nextCursor,
+        limit,
+        count: movers.length
+      },
+      filters: {
+        exchange,
+        period,
+        sector,
+        sortBy,
+        gainersOnly,
+        losersOnly
+      }
+    }
+
     const message = `${period} movers for ${exchange}${sector ? ` in ${sector} sector` : ''} retrieved successfully`
-    return createResponse(200, movers, message)
+    return createResponse(200, responseData, message)
 
   } catch (error) {
     console.error('Error fetching movers:', error)

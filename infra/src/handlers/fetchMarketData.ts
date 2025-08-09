@@ -6,18 +6,39 @@ import { YahooFinanceService } from '../services/yahooFinance'
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
 
-// Popular symbols to track
+// Comprehensive symbols across all major markets
 const TRACKED_SYMBOLS = [
-  // US Tech
-  'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX',
-  // US Finance
-  'JPM', 'BAC', 'WFC', 'GS', 'MS', 'V', 'MA', 'AXP',
-  // US Others
-  'BRK-B', 'JNJ', 'UNH', 'HD', 'DIS', 'PG', 'KO', 'PEP',
-  // ASX Top stocks
-  'CBA.AX', 'BHP.AX', 'CSL.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX', 
-  'WES.AX', 'TLS.AX', 'WOW.AX', 'MQG.AX', 'RIO.AX', 'FMG.AX',
-  'TCL.AX', 'ALL.AX', 'WDS.AX', 'GMG.AX', 'REA.AX', 'COH.AX'
+  // NASDAQ Tech Giants
+  'AAPL', 'GOOGL', 'GOOG', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX', 'ADBE',
+  'CRM', 'INTC', 'AMD', 'QCOM', 'CSCO', 'ORCL', 'PYPL', 'UBER', 'LYFT', 'ZOOM',
+  'SPOT', 'SQ', 'SHOP', 'TWTR', 'SNAP', 'PINS', 'ROKU', 'DOCU', 'ZM', 'TEAM',
+  
+  // NASDAQ Biotech & Healthcare
+  'GILD', 'MRNA', 'BNTX', 'REGN', 'VRTX', 'BIIB', 'CELG', 'AMGN', 'ISRG',
+  
+  // NYSE Finance & Banking
+  'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'PNC', 'TFC', 'COF',
+  'V', 'MA', 'AXP', 'BLK', 'SPGI', 'ICE', 'CME', 'SCHW',
+  
+  // NYSE Industrial & Consumer
+  'BRK-B', 'JNJ', 'PG', 'KO', 'PEP', 'WMT', 'HD', 'MCD', 'NKE', 'SBUX',
+  'DIS', 'VZ', 'T', 'XOM', 'CVX', 'LMT', 'BA', 'CAT', 'MMM', 'GE',
+  'UNH', 'CVS', 'ABBV', 'PFE', 'MRK', 'TMO', 'ABT', 'DHR', 'BMY', 'LLY',
+  
+  // ASX Top 50
+  'CBA.AX', 'BHP.AX', 'CSL.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX', 'WES.AX', 'TLS.AX',
+  'WOW.AX', 'MQG.AX', 'RIO.AX', 'FMG.AX', 'TCL.AX', 'ALL.AX', 'WDS.AX', 'GMG.AX',
+  'REA.AX', 'COH.AX', 'XRO.AX', 'APT.AX', 'SQ2.AX', 'PME.AX', 'QBE.AX', 'IAG.AX',
+  'NCM.AX', 'S32.AX', 'AMP.AX', 'ORG.AX', 'CPU.AX', 'SUN.AX', 'AGL.AX', 'JBH.AX',
+  'WPL.AX', 'SCG.AX', 'COL.AX', 'ASX.AX', 'CWN.AX', 'APA.AX', 'IEL.AX', 'MIN.AX',
+  
+  // LSE (London) Major Stocks
+  'SHEL.L', 'AZN.L', 'LSEG.L', 'UU.L', 'DGE.L', 'VOD.L', 'GSK.L', 'PRU.L',
+  'NG.L', 'LLOY.L', 'BARC.L', 'BP.L', 'RDS-A.L', 'HSBA.L', 'ULVR.L',
+  
+  // TSE (Toronto) Major Stocks  
+  'SHOP.TO', 'RY.TO', 'TD.TO', 'BNS.TO', 'BMO.TO', 'CM.TO', 'CNR.TO', 'CP.TO',
+  'SU.TO', 'ENB.TO', 'TRP.TO', 'CNQ.TO', 'WCN.TO', 'BAM-A.TO'
 ]
 
 export const handler = async (event: EventBridgeEvent<string, any>) => {
