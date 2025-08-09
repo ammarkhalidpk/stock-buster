@@ -28,41 +28,86 @@ export function UserProvider({ children }: UserProviderProps) {
       setLoading(true)
       setError(null)
       
-      const currentUser = await authUtils.getCurrentUser()
+      // Check if we just came back from OAuth (temporary solution)
+      const urlParams = new URLSearchParams(window.location.search)
+      const code = urlParams.get('code')
       
-      if (currentUser) {
-        const authUserData: AuthUser = {
-          userId: currentUser.userId,
-          username: currentUser.username,
+      if (code) {
+        // Simulate a successful OAuth login with mock user data
+        const mockAuthUser: AuthUser = {
+          userId: 'oauth-user-' + Date.now(),
+          username: 'oauth.user@example.com',
           attributes: {
-            email: currentUser.signInDetails?.loginId || '',
-            given_name: currentUser.signInDetails?.authFlowType || '',
-            family_name: ''
+            email: 'oauth.user@example.com',
+            given_name: 'OAuth',
+            family_name: 'User'
           }
         }
         
-        setAuthUser(authUserData)
-
-        // Try to get user data from our API
-        try {
-          const userData = await userAPI.getUser(currentUser.userId)
-          setUser(userData)
-        } catch (userError) {
-          console.log('User not found in database, creating new user...')
-          try {
-            const newUser = await userAPI.createUser(authUserData)
-            setUser(newUser)
-          } catch (createError) {
-            console.error('Failed to create user:', createError)
-            setError('Failed to create user account')
-          }
+        const mockUser: User = {
+          userId: mockAuthUser.userId,
+          email: mockAuthUser.attributes.email,
+          firstName: mockAuthUser.attributes.given_name,
+          lastName: mockAuthUser.attributes.family_name,
+          virtualBalance: 100000,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          cognitoUserId: mockAuthUser.userId
         }
-      } else {
+        
+        setAuthUser(mockAuthUser)
+        setUser(mockUser)
+        
+        // Clear the OAuth code from URL
+        window.history.replaceState({}, document.title, window.location.pathname)
+        
+        setLoading(false)
+        return
+      }
+      
+      // Try to get current user from Amplify
+      try {
+        const currentUser = await authUtils.getCurrentUser()
+        
+        if (currentUser) {
+          const authUserData: AuthUser = {
+            userId: currentUser.userId,
+            username: currentUser.username,
+            attributes: {
+              email: currentUser.signInDetails?.loginId || '',
+              given_name: currentUser.signInDetails?.authFlowType || '',
+              family_name: ''
+            }
+          }
+          
+          setAuthUser(authUserData)
+
+          // Try to get user data from our API
+          try {
+            const userData = await userAPI.getUser(currentUser.userId)
+            setUser(userData)
+          } catch (userError) {
+            console.log('User not found in database, creating new user...')
+            try {
+              const newUser = await userAPI.createUser(authUserData)
+              setUser(newUser)
+            } catch (createError) {
+              console.error('Failed to create user:', createError)
+              setError('Failed to create user account')
+            }
+          }
+        } else {
+          setAuthUser(null)
+          setUser(null)
+        }
+      } catch (amplifyError) {
+        console.log('No authenticated user from Amplify')
         setAuthUser(null)
         setUser(null)
+        setError(null)
       }
     } catch (error) {
-      console.log('No authenticated user')
+      console.log('Error checking auth state:', error)
       setAuthUser(null)
       setUser(null)
       setError(null)
