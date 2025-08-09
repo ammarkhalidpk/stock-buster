@@ -10,7 +10,7 @@ applications:
         build:
           commands:
             - echo "Building React app..."
-            - echo "API URLs - REST: $VITE_API_URL_REST, WebSocket: $VITE_API_URL_WS"
+            - echo "Building React app with API URLs configured..."
             - npm run build
       artifacts:
         baseDirectory: dist
