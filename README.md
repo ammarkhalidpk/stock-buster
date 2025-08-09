@@ -120,9 +120,9 @@ VITE_API_URL_WS=wss://your-websocket-url.execute-api.us-east-1.amazonaws.com/pro
 
 Amplify automatically creates preview environments for pull requests:
 
-- **Feature Branch:** `https://feature-branch.<app-id>.amplifyapp.com`
-- **PR Preview:** `https://pr-123.<app-id>.amplifyapp.com`
-- **Main Branch:** `https://main.<app-id>.amplifyapp.com`
+- **Feature Branch:** `https://feature-branch.d3u7j2fpar0uk0.amplifyapp.com`
+- **PR Preview:** `https://pr-123.d3u7j2fpar0uk0.amplifyapp.com`
+- **Main Branch:** `https://main.d3u7j2fpar0uk0.amplifyapp.com`
 
 Each environment uses the same backend infrastructure but can have different environment variables if needed.
 
@@ -160,7 +160,7 @@ MIT
 
 ## 🚀 Live Demo
 
-**Frontend:** https://main.dyb9cmabiux6t.amplifyapp.com  
+**Frontend:** https://main.d3u7j2fpar0uk0.amplifyapp.com  
 **REST API:** https://9nzf05a233.execute-api.ap-southeast-2.amazonaws.com/dev/  
 **WebSocket API:** wss://klcu52wu2c.execute-api.ap-southeast-2.amazonaws.com/dev
 
