@@ -157,3 +157,8 @@ All endpoints return mock data when no real data exists, enabling development wi
 ## License
 
 MIT
+
+## 🚀 Live Demo
+
+Frontend: https://main.dyb9cmabiux6t.amplifyapp.com
+API: https://9nzf05a233.execute-api.ap-southeast-2.amazonaws.com/dev/
