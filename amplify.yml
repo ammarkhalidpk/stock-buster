@@ -6,12 +6,15 @@ applications:
         preBuild:
           commands:
             - echo "Installing dependencies..."
-            - nvm use 20
+            - echo "Node version:" && node --version
+            - echo "NPM version:" && npm --version
             - npm ci
         build:
           commands:
             - echo "Building React app..."
             - npm run build
+            - echo "Build complete, checking dist directory..."
+            - ls -la dist/
       artifacts:
         baseDirectory: dist
         files:
