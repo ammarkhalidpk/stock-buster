@@ -75,7 +75,7 @@ export default function Login() {
                   type="button"
                   className="w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   onClick={() => {
-                    window.location.href = `https://stock-buster-dev-506194020427.auth.ap-southeast-2.amazoncognito.com/login?response_type=code&client_id=2fpnrvqlm4i7mqe6v3amqmh2i2&redirect_uri=${encodeURIComponent(window.location.origin)}&scope=email+openid+profile`
+                    window.location.href = `https://stock-buster-dev-506194020427.auth.ap-southeast-2.amazoncognito.com/signup?response_type=code&client_id=2fpnrvqlm4i7mqe6v3amqmh2i2&redirect_uri=${encodeURIComponent(window.location.origin)}&scope=email+openid+profile`
                   }}
                 >
                   Create account with email
