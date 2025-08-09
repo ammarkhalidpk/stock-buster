@@ -181,7 +181,7 @@ export default function Watchlist() {
                         </Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {formatCurrency(item.currentPrice)}
+                        {formatCurrency(item.currentPrice ?? null)}
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${(item.change || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {item.change !== null && item.change !== undefined ? 
@@ -192,7 +192,7 @@ export default function Watchlist() {
                           `${item.changePercent >= 0 ? '+' : ''}${item.changePercent.toFixed(2)}%` : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {formatVolume(item.volume)}
+                        {formatVolume(item.volume ?? null)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {new Date(item.addedAt).toLocaleDateString()}
