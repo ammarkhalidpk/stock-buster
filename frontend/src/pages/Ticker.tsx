@@ -133,16 +133,16 @@ export default function Ticker() {
                         {new Date(bar.timestamp).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        ${bar.open.toFixed(2)}
+                        ${bar.open?.toFixed(2) || '0.00'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                        ${bar.high.toFixed(2)}
+                        ${bar.high?.toFixed(2) || '0.00'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                        ${bar.low.toFixed(2)}
+                        ${bar.low?.toFixed(2) || '0.00'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        ${bar.close.toFixed(2)}
+                        ${bar.close?.toFixed(2) || '0.00'}
                       </td>
                     </tr>
                   ))}
@@ -175,11 +175,11 @@ export default function Ticker() {
               <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                 <div>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Target Price</dt>
-                  <dd className="mt-1 text-2xl font-bold text-green-600">${forecast.target.toFixed(2)}</dd>
+                  <dd className="mt-1 text-2xl font-bold text-green-600">${forecast.target?.toFixed(2) || '0.00'}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Confidence</dt>
-                  <dd className="mt-1 text-2xl font-bold text-blue-600">{(forecast.confidence * 100).toFixed(0)}%</dd>
+                  <dd className="mt-1 text-2xl font-bold text-blue-600">{((forecast.confidence || 0) * 100).toFixed(0)}%</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Time Horizon</dt>

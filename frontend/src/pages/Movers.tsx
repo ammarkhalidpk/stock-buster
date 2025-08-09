@@ -14,7 +14,9 @@ export default function Movers() {
         // TODO: Replace with actual API call
         const response = await fetch(`${import.meta.env.VITE_API_URL_REST}/movers`)
         const data = await response.json()
-        setMovers(data.data || [])
+        // Filter out items with null prices
+        const validMovers = (data.data || []).filter((m: Mover) => m.price !== null && m.price !== undefined)
+        setMovers(validMovers)
         setLastUpdate(new Date().toISOString())
       } catch (error) {
         console.error('Failed to fetch movers:', error)
@@ -112,16 +114,16 @@ export default function Movers() {
                   {mover.symbol}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  ${mover.price.toFixed(2)}
+                  ${mover.price?.toFixed(2) || '0.00'}
                 </td>
                 <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${mover.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {mover.change >= 0 ? '+' : ''}{mover.change.toFixed(2)}
+                  {mover.change >= 0 ? '+' : ''}{mover.change?.toFixed(2) || '0.00'}
                 </td>
                 <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${mover.changePercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {mover.changePercent >= 0 ? '+' : ''}{mover.changePercent.toFixed(2)}%
+                  {mover.changePercent >= 0 ? '+' : ''}{mover.changePercent?.toFixed(2) || '0.00'}%
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  {mover.volume.toLocaleString()}
+                  {mover.volume?.toLocaleString() || '0'}
                 </td>
               </tr>
             ))}

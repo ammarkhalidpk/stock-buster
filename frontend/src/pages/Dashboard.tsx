@@ -13,7 +13,9 @@ export default function Dashboard() {
         // TODO: Replace with actual API call
         const response = await fetch(`${import.meta.env.VITE_API_URL_REST}/movers`)
         const data = await response.json()
-        setMovers(data.data || [])
+        // Filter out items with null prices
+        const validMovers = (data.data || []).filter((m: Mover) => m.price !== null && m.price !== undefined)
+        setMovers(validMovers)
         setLastUpdate(new Date().toISOString())
       } catch (error) {
         console.error('Failed to fetch movers:', error)
@@ -134,11 +136,11 @@ export default function Dashboard() {
                       {mover.symbol}
                     </div>
                     <div className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                      ${mover.price.toFixed(2)}
+                      ${mover.price?.toFixed(2) || '0.00'}
                     </div>
                   </div>
                   <div className={`text-sm font-medium ${mover.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {mover.change >= 0 ? '+' : ''}{mover.change.toFixed(2)} ({mover.changePercent.toFixed(2)}%)
+                    {mover.change >= 0 ? '+' : ''}{mover.change?.toFixed(2) || '0.00'} ({mover.changePercent?.toFixed(2) || '0.00'}%)
                   </div>
                 </div>
               </li>
