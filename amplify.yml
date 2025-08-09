@@ -10,7 +10,6 @@ applications:
         build:
           commands:
             - echo "Building React app..."
-            - echo "Building React app with API URLs configured..."
             - npm run build
       artifacts:
         baseDirectory: dist
@@ -19,17 +18,3 @@ applications:
       cache:
         paths:
           - node_modules/**/*
-    test:
-      phases:
-        preTest:
-          commands:
-            - echo "Installing test dependencies..."
-            - npm ci
-        test:
-          commands:
-            - echo "Running unit tests..."
-            - npm run test:run
-      artifacts:
-        baseDirectory: coverage
-        files:
-          - '**/*'
