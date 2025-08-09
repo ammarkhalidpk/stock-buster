@@ -1,0 +1,359 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Stock Buster API Infrastructure
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs20.x
+    MemorySize: 256
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        BARS_DAILY_TABLE: !Ref BarsDailyTable
+        BARS_INTRADAY_TABLE: !Ref BarsIntradayTable
+        MOVERS_TABLE: !Ref MoversTable
+        FORECASTS_TABLE: !Ref ForecastsTable
+        METADATA_TABLE: !Ref MetadataTable
+
+Resources:
+  # DynamoDB Tables
+  BarsDailyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-bars-daily-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: symbol
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: symbol
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  BarsIntradayTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-bars-intraday-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: symbol
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: symbol
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  MoversTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-movers-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ForecastsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-forecasts-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: symbol
+          AttributeType: S
+        - AttributeName: horizon
+          AttributeType: S
+      KeySchema:
+        - AttributeName: symbol
+          KeyType: HASH
+        - AttributeName: horizon
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  MetadataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-metadata-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: key
+          KeyType: HASH
+
+  # REST API
+  StockBusterApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'content-type,x-amz-date,authorization,x-api-key,x-amz-security-token'"
+        AllowOrigin: "'*'"
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'content-type,x-amz-date,authorization,x-api-key,x-amz-security-token'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'content-type,x-amz-date,authorization,x-api-key,x-amz-security-token'"
+
+  # Lambda Functions - REST API
+  GetMoversFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/movers.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /movers
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MoversTable
+
+  GetBarsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/bars.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /bars/{symbol}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BarsDailyTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BarsIntradayTable
+
+  GetForecastFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/forecast.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /forecast/{symbol}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ForecastsTable
+
+  # WebSocket API
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "stock-buster-ws-${Environment}"
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  WebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebSocketApi
+      StageName: !Ref Environment
+      AutoDeploy: true
+
+  # WebSocket Lambda Functions
+  ConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/websocket.connect
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetadataTable
+
+  DisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/websocket.disconnect
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetadataTable
+
+  MessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/websocket.message
+      Environment:
+        Variables:
+          WS_API_ENDPOINT: !Sub "${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MetadataTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref MoversTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource:
+                - !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/${Environment}/POST/@connections/*"
+
+  # WebSocket Routes
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target: !Sub "integrations/${ConnectInteg}"
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: DisconnectRoute
+      Target: !Sub "integrations/${DisconnectInteg}"
+
+  MessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: message
+      AuthorizationType: NONE
+      OperationName: MessageRoute
+      Target: !Sub "integrations/${MessageInteg}"
+
+  # WebSocket Integrations
+  ConnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Connect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations"
+
+  DisconnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Disconnect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DisconnectFunction.Arn}/invocations"
+
+  MessageInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Message Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MessageFunction.Arn}/invocations"
+
+  # Lambda Permissions for WebSocket
+  ConnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ConnectFunction
+      Principal: apigateway.amazonaws.com
+
+  DisconnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DisconnectFunction
+      Principal: apigateway.amazonaws.com
+
+  MessagePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref MessageFunction
+      Principal: apigateway.amazonaws.com
+
+  # Scheduled Lambda for Daily Movers Calculation
+  CalcMoversFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/calcMoversDaily.handler
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: 'cron(30 8 * * ? *)' # 8:30 AM UTC daily
+            Name: !Sub "${AWS::StackName}-daily-movers"
+            Description: "Calculate daily market movers"
+            Enabled: true
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BarsDailyTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MoversTable
+      Environment:
+        Variables:
+          BARS_DAILY_TABLE: !Ref BarsDailyTable
+          MOVERS_TABLE: !Ref MoversTable
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway REST API URL"
+    Value: !Sub "https://${StockBusterApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+
+  WebSocketUrl:
+    Description: "WebSocket API URL"
+    Value: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+    Export:
+      Name: !Sub "${AWS::StackName}-WebSocketUrl"
