@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { Mover } from '../types'
 
 export default function Movers() {
@@ -110,8 +111,10 @@ export default function Movers() {
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {filteredMovers.map((mover) => (
               <tr key={mover.symbol} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                  {mover.symbol}
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <Link to={`/stock/${mover.symbol}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                    {mover.symbol}
+                  </Link>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                   ${mover.price?.toFixed(2) || '0.00'}

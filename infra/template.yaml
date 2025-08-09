@@ -186,6 +186,19 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref ForecastsTable
 
+  GetStockDetailsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/stockDetails.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /stock/{symbol}
+            Method: get
+
   # WebSocket API
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api

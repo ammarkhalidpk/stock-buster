@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { Mover } from '../types'
 
 export default function Dashboard() {
@@ -129,20 +130,22 @@ export default function Dashboard() {
         <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200 dark:divide-gray-700">
             {movers.slice(0, 5).map((mover) => (
-              <li key={mover.symbol} className="px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {mover.symbol}
+              <li key={mover.symbol} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <Link to={`/stock/${mover.symbol}`} className="block">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                        {mover.symbol}
+                      </div>
+                      <div className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                        ${mover.price?.toFixed(2) || '0.00'}
+                      </div>
                     </div>
-                    <div className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                      ${mover.price?.toFixed(2) || '0.00'}
+                    <div className={`text-sm font-medium ${mover.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {mover.change >= 0 ? '+' : ''}{mover.change?.toFixed(2) || '0.00'} ({mover.changePercent?.toFixed(2) || '0.00'}%)
                     </div>
                   </div>
-                  <div className={`text-sm font-medium ${mover.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {mover.change >= 0 ? '+' : ''}{mover.change?.toFixed(2) || '0.00'} ({mover.changePercent?.toFixed(2) || '0.00'}%)
-                  </div>
-                </div>
+                </Link>
               </li>
             ))}
           </ul>
