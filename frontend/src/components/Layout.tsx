@@ -3,6 +3,9 @@ import { useUser } from '../contexts/UserContext'
 
 export default function Layout() {
   const { user, loading, logout } = useUser()
+  
+  // Debug logging to see what Layout component receives
+  console.log('🎯 Layout render:', { user, loading, userEmail: user?.email, balance: user?.virtualBalance })
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

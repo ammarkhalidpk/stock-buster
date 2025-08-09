@@ -22,6 +22,7 @@ export function UserProvider({ children }: UserProviderProps) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [oauthProcessed, setOauthProcessed] = useState(false)
 
   const checkAuthState = async () => {
     try {
@@ -32,7 +33,17 @@ export function UserProvider({ children }: UserProviderProps) {
       const urlParams = new URLSearchParams(window.location.search)
       const code = urlParams.get('code')
       
-      if (code) {
+      console.log('🔍 Checking OAuth redirect:', {
+        currentURL: window.location.href,
+        searchParams: window.location.search,
+        code: code,
+        hasCode: !!code
+      })
+      
+      if (code && !oauthProcessed) {
+        console.log('✅ OAuth code detected! Creating mock user...')
+        setOauthProcessed(true)
+        
         // Simulate a successful OAuth login with mock user data
         const mockAuthUser: AuthUser = {
           userId: 'oauth-user-' + Date.now(),
@@ -55,12 +66,43 @@ export function UserProvider({ children }: UserProviderProps) {
           cognitoUserId: mockAuthUser.userId
         }
         
+        // Store in localStorage for persistence across HMR
+        localStorage.setItem('oauthUser', JSON.stringify(mockUser))
+        localStorage.setItem('oauthAuthUser', JSON.stringify(mockAuthUser))
+        
         setAuthUser(mockAuthUser)
         setUser(mockUser)
         
+        console.log('🎉 Mock user created and stored in localStorage:', {
+          authUser: mockAuthUser,
+          user: mockUser
+        })
+        
         // Clear the OAuth code from URL
         window.history.replaceState({}, document.title, window.location.pathname)
+        console.log('🔄 URL cleaned, new URL:', window.location.href)
         
+        setLoading(false)
+        return
+      }
+      
+      // Check localStorage for existing OAuth user
+      const storedUser = localStorage.getItem('oauthUser')
+      const storedAuthUser = localStorage.getItem('oauthAuthUser')
+      
+      console.log('🗃️ Checking localStorage:', { 
+        hasStoredUser: !!storedUser, 
+        hasStoredAuthUser: !!storedAuthUser,
+        storedUserPreview: storedUser ? JSON.parse(storedUser).email : null
+      })
+      
+      if (storedUser && storedAuthUser) {
+        console.log('🔄 Found stored OAuth user, restoring state')
+        const parsedUser = JSON.parse(storedUser)
+        const parsedAuthUser = JSON.parse(storedAuthUser)
+        
+        setUser(parsedUser)
+        setAuthUser(parsedAuthUser)
         setLoading(false)
         return
       }
@@ -135,6 +177,8 @@ export function UserProvider({ children }: UserProviderProps) {
   const logout = async () => {
     try {
       await authUtils.signOut()
+      localStorage.removeItem('oauthUser')
+      localStorage.removeItem('oauthAuthUser')
       setUser(null)
       setAuthUser(null)
       window.location.href = '/'
