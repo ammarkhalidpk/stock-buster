@@ -6,10 +6,13 @@ applications:
         preBuild:
           commands:
             - echo "Node version:" && node --version
-            - echo "Installing dependencies..."
+            - echo "Current directory:" && pwd
+            - echo "Checking for package.json..."
+            - ls -la package.json || echo "No package.json found"
             - echo "Checking for package-lock.json..."
             - ls -la package-lock.json || echo "No package-lock.json found"
-            - npm install
+            - echo "Installing dependencies with npm ci..."
+            - npm ci --prefer-offline --no-audit
         build:
           commands:
             - echo "Building React app..."
