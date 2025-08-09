@@ -1,6 +1,7 @@
 import { EventBridgeEvent } from 'aws-lambda'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient, ScanCommand, BatchWriteCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
+import { YahooFinanceService } from '../services/yahooFinance'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -49,13 +50,29 @@ export const handler = async (event: EventBridgeEvent<string, any>) => {
 
     console.log(`Processing dates: ${yesterdayStr} -> ${todayStr}`)
 
-    // Get all symbols with data for both days
-    const moversData = await calculateDailyMovers(barsDailyTable, todayStr, yesterdayStr)
+    // Fetch real-time data from Yahoo Finance
+    console.log('Fetching trending stocks from Yahoo Finance')
+    const yahooQuotes = await YahooFinanceService.getTrendingStocks()
     
-    if (moversData.length === 0) {
-      console.log('No movers data calculated')
+    if (yahooQuotes.length === 0) {
+      console.log('No data from Yahoo Finance')
       return { statusCode: 200, message: 'No data to process' }
     }
+    
+    // Convert Yahoo quotes to mover data
+    const moversData: MoverData[] = yahooQuotes
+      .map(quote => ({
+        symbol: quote.symbol,
+        exchange: YahooFinanceService.getExchange(quote.symbol),
+        sector: YahooFinanceService.getSector(quote.symbol),
+        price: quote.regularMarketPrice,
+        change: quote.regularMarketChange,
+        changePercent: quote.regularMarketChangePercent,
+        volume: quote.regularMarketVolume,
+        rank: 0, // Will be set when grouping by exchange
+        timestamp: new Date(quote.regularMarketTime * 1000).toISOString()
+      }))
+      .filter(mover => Math.abs(mover.changePercent) >= 0.5) // Filter significant movers
 
     // Group by exchange and write to DynamoDB
     const exchanges = [...new Set(moversData.map(m => m.exchange))]

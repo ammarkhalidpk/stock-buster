@@ -345,6 +345,35 @@ Resources:
           BARS_DAILY_TABLE: !Ref BarsDailyTable
           MOVERS_TABLE: !Ref MoversTable
 
+  # Scheduled Lambda for fetching market data every 15 minutes
+  FetchMarketDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/fetchMarketData.handler
+      Timeout: 120 # 2 minutes for fetching multiple symbols
+      MemorySize: 512 # More memory for processing
+      Events:
+        FetchSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: 'rate(15 minutes)' # Every 15 minutes
+            Name: !Sub "${AWS::StackName}-fetch-market-data"
+            Description: "Fetch market data from Yahoo Finance"
+            Enabled: true
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BarsDailyTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BarsIntradayTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MoversTable
+      Environment:
+        Variables:
+          BARS_DAILY_TABLE: !Ref BarsDailyTable
+          BARS_INTRADAY_TABLE: !Ref BarsIntradayTable
+          MOVERS_TABLE: !Ref MoversTable
+
 Outputs:
   ApiUrl:
     Description: "API Gateway REST API URL"

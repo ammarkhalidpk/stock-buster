@@ -15,8 +15,8 @@ export const handler: ApiHandler = async (event) => {
     }
 
     // Get query parameters with defaults
-    const period = event.queryStringParameters?.period || 'DAILY' // DAILY, WEEKLY, MONTHLY
-    const exchange = event.queryStringParameters?.exchange || 'ASX' // ASX, NASDAQ, LSE, etc.
+    const period = event.queryStringParameters?.period || 'INTRADAY' // INTRADAY, DAILY, WEEKLY, MONTHLY
+    const exchange = event.queryStringParameters?.exchange || 'ALL' // ALL, ASX, NASDAQ, LSE, etc.
     const sector = event.queryStringParameters?.sector // Optional sector filter
     const limit = event.queryStringParameters?.limit ? Math.min(parseInt(event.queryStringParameters.limit), 100) : 20
     const gainersOnly = event.queryStringParameters?.gainers === 'true'
@@ -68,10 +68,15 @@ export const handler: ApiHandler = async (event) => {
       timestamp: item.timestamp
     }))
 
-    // Mock data if no real data exists (for development)
+    // If no data in DynamoDB, return empty or mock data
     if (movers.length === 0) {
-      console.log('No data found, returning mock data')
-      movers = generateMockData(exchange, limit, gainersOnly, losersOnly, sector)
+      console.log('No data in DynamoDB yet')
+      
+      // For development/testing, return mock data
+      // In production, the FetchMarketDataFunction will populate this data
+      if (process.env.ENVIRONMENT === 'dev') {
+        movers = generateMockData(exchange, limit, gainersOnly, losersOnly, sector)
+      }
     }
 
     const message = `${period} movers for ${exchange}${sector ? ` in ${sector} sector` : ''} retrieved successfully`
