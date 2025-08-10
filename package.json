@@ -1,0 +1,24 @@
+{
+  "name": "stock-buster",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "infra"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "deploy:infra": "npm run deploy --workspace=infra",
+    "clean": "npm run clean --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

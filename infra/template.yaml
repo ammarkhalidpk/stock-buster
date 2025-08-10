@@ -1,0 +1,733 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Stock Buster API Infrastructure
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  GoogleClientId:
+    Type: String
+    Default: "your-google-client-id"
+    Description: Google OAuth Client ID for federated login
+  GoogleClientSecret:
+    Type: String
+    Default: "your-google-client-secret"
+    NoEcho: true
+    Description: Google OAuth Client Secret for federated login
+  FacebookAppId:
+    Type: String
+    Default: "your-facebook-app-id"
+    Description: Facebook App ID for federated login
+  FacebookAppSecret:
+    Type: String
+    Default: "your-facebook-app-secret"
+    NoEcho: true
+    Description: Facebook App Secret for federated login
+  
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs20.x
+    MemorySize: 256
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        BARS_DAILY_TABLE: !Ref BarsDailyTable
+        BARS_INTRADAY_TABLE: !Ref BarsIntradayTable
+        MOVERS_TABLE: !Ref MoversTable
+        FORECASTS_TABLE: !Ref ForecastsTable
+        METADATA_TABLE: !Ref MetadataTable
+        USERS_TABLE: !Ref UsersTable
+        PORTFOLIOS_TABLE: !Ref PortfoliosTable
+        TRANSACTIONS_TABLE: !Ref TransactionsTable
+        WATCHLISTS_TABLE: !Ref WatchlistsTable
+        USER_POOL_ID: !Ref UserPool
+        USER_POOL_CLIENT_ID: !Ref UserPoolClient
+
+Resources:
+  # DynamoDB Tables
+  BarsDailyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-bars-daily-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: symbol
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: symbol
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  BarsIntradayTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-bars-intraday-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: symbol
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: symbol
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  MoversTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-movers-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ForecastsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-forecasts-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: symbol
+          AttributeType: S
+        - AttributeName: horizon
+          AttributeType: S
+      KeySchema:
+        - AttributeName: symbol
+          KeyType: HASH
+        - AttributeName: horizon
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  MetadataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-metadata-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: key
+          KeyType: HASH
+
+  # User Management Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-users-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  PortfoliosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-portfolios-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: symbol
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: symbol
+          KeyType: RANGE
+
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-transactions-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: transactionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: transactionId
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  WatchlistsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "stock-buster-watchlists-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: symbol
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: symbol
+          KeyType: RANGE
+
+  # AWS Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "stock-buster-${Environment}"
+      AliasAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: given_name
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+        - Name: family_name
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "stock-buster-client-${Environment}"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      SupportedIdentityProviders:
+        - COGNITO
+      AllowedOAuthFlows:
+        - code
+        - implicit
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      CallbackURLs:
+        - "http://localhost:5173"
+        - "https://main.d3r4e5f6g7h8i9.amplifyapp.com"
+      LogoutURLs:
+        - "http://localhost:5173"
+        - "https://main.d3r4e5f6g7h8i9.amplifyapp.com"
+      AllowedOAuthFlowsUserPoolClient: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub "stock-buster-${Environment}-${AWS::AccountId}"
+      UserPoolId: !Ref UserPool
+
+  # REST API
+  StockBusterApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'content-type,x-amz-date,authorization,x-api-key,x-amz-security-token'"
+        AllowOrigin: "'*'"
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'content-type,x-amz-date,authorization,x-api-key,x-amz-security-token'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'content-type,x-amz-date,authorization,x-api-key,x-amz-security-token'"
+
+  # Lambda Functions - REST API
+  GetMoversFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/movers.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /movers
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MoversTable
+
+  GetBarsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/bars.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /bars/{symbol}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BarsDailyTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BarsIntradayTable
+
+  GetForecastFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/forecast.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /forecast/{symbol}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ForecastsTable
+
+  GetStockDetailsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/stockDetails.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /stock/{symbol}
+            Method: get
+
+  # User Management Functions
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/users.createUser
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/users.getUser
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  # Portfolio Management Functions
+  GetPortfolioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/portfolio.getPortfolio
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/portfolio
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PortfoliosTable
+
+  BuyStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/portfolio.buyStock
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/portfolio/buy
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfoliosTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  SellStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/portfolio.sellStock
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/portfolio/sell
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfoliosTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  GetTransactionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/portfolio.getTransactions
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/transactions
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TransactionsTable
+
+  # Watchlist Functions
+  GetWatchlistFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/watchlist.getWatchlist
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/watchlist
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref WatchlistsTable
+
+  AddToWatchlistFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/watchlist.addToWatchlist
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/watchlist
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WatchlistsTable
+
+  RemoveFromWatchlistFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/watchlist.removeFromWatchlist
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref StockBusterApi
+            Path: /users/{userId}/watchlist/{symbol}
+            Method: delete
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WatchlistsTable
+
+  # WebSocket API
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "stock-buster-ws-${Environment}"
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  WebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebSocketApi
+      StageName: !Ref Environment
+      AutoDeploy: true
+
+  # WebSocket Lambda Functions
+  ConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/websocket.connect
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetadataTable
+
+  DisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/websocket.disconnect
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetadataTable
+
+  MessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/websocket.message
+      Environment:
+        Variables:
+          WS_API_ENDPOINT: !Sub "${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MetadataTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref MoversTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource:
+                - !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/${Environment}/POST/@connections/*"
+
+  # WebSocket Routes
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target: !Sub "integrations/${ConnectInteg}"
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: DisconnectRoute
+      Target: !Sub "integrations/${DisconnectInteg}"
+
+  MessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: message
+      AuthorizationType: NONE
+      OperationName: MessageRoute
+      Target: !Sub "integrations/${MessageInteg}"
+
+  # WebSocket Integrations
+  ConnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Connect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations"
+
+  DisconnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Disconnect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DisconnectFunction.Arn}/invocations"
+
+  MessageInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Message Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MessageFunction.Arn}/invocations"
+
+  # Lambda Permissions for WebSocket
+  ConnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ConnectFunction
+      Principal: apigateway.amazonaws.com
+
+  DisconnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DisconnectFunction
+      Principal: apigateway.amazonaws.com
+
+  MessagePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref MessageFunction
+      Principal: apigateway.amazonaws.com
+
+  # Scheduled Lambda for Daily Movers Calculation
+  CalcMoversFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/calcMoversDaily.handler
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: 'cron(30 8 * * ? *)' # 8:30 AM UTC daily
+            Name: !Sub "${AWS::StackName}-daily-movers"
+            Description: "Calculate daily market movers"
+            Enabled: true
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BarsDailyTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MoversTable
+      Environment:
+        Variables:
+          BARS_DAILY_TABLE: !Ref BarsDailyTable
+          MOVERS_TABLE: !Ref MoversTable
+
+  # Scheduled Lambda for fetching market data every 15 minutes
+  FetchMarketDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: handlers/fetchMarketData.handler
+      Timeout: 120 # 2 minutes for fetching multiple symbols
+      MemorySize: 512 # More memory for processing
+      Events:
+        FetchSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: 'rate(15 minutes)' # Every 15 minutes
+            Name: !Sub "${AWS::StackName}-fetch-market-data"
+            Description: "Fetch market data from Yahoo Finance"
+            Enabled: true
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BarsDailyTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BarsIntradayTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MoversTable
+      Environment:
+        Variables:
+          BARS_DAILY_TABLE: !Ref BarsDailyTable
+          BARS_INTRADAY_TABLE: !Ref BarsIntradayTable
+          MOVERS_TABLE: !Ref MoversTable
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway REST API URL"
+    Value: !Sub "https://${StockBusterApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+
+  WebSocketUrl:
+    Description: "WebSocket API URL"
+    Value: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+    Export:
+      Name: !Sub "${AWS::StackName}-WebSocketUrl"
+
+  UserPoolId:
+    Description: "Cognito User Pool ID"
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+
+  UserPoolClientId:
+    Description: "Cognito User Pool Client ID"
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+
+  UserPoolDomain:
+    Description: "Cognito User Pool Domain"
+    Value: !Sub "https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolDomain"
